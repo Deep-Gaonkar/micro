@@ -21,7 +21,7 @@ export type RectangleLayer = {
   type: LayerType.Rectangle;
   x: number;
   y: number;
-  heigth: number;
+  height: number;
   width: number;
   fill: Color;
   value?: string;
@@ -130,3 +130,10 @@ export enum CanvasMode {
   Resizing,
   Pencil,
 }
+
+export type Layer =
+  | RectangleLayer
+  | EllipseLayer
+  | PathLayer
+  | TextLayer
+  | NoteLayer;
