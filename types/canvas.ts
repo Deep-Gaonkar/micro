@@ -31,7 +31,7 @@ export type EllipseLayer = {
   type: LayerType.Ellipse;
   x: number;
   y: number;
-  heigth: number;
+  height: number;
   width: number;
   fill: Color;
   value?: string;
@@ -41,7 +41,7 @@ export type PathLayer = {
   type: LayerType.Path;
   x: number;
   y: number;
-  heigth: number;
+  height: number;
   width: number;
   fill: Color;
   points: number[][];
@@ -52,7 +52,7 @@ export type TextLayer = {
   type: LayerType.Text;
   x: number;
   y: number;
-  heigth: number;
+  height: number;
   width: number;
   fill: Color;
   value?: string;
@@ -62,7 +62,7 @@ export type NoteLayer = {
   type: LayerType.Note;
   x: number;
   y: number;
-  heigth: number;
+  height: number;
   width: number;
   fill: Color;
   value?: string;
