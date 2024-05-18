@@ -3,7 +3,8 @@
 import Stripe from "stripe";
 import { v } from "convex/values";
 
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 const url = process.env.NEXT_PUBLIC_APP_URL;
 const stripe = new Stripe(process.env.STRIPE_API_KEY!, {
@@ -26,12 +27,12 @@ export const pay = action({
       line_items: [
         {
           price_data: {
-            currency: "INR",
+            currency: "USD",
             product_data: {
               name: "Board Pro",
               description: "Unlimited boards for your organization",
             },
-            unit_amount: 10000,
+            unit_amount: 2000,
             recurring: {
               interval: "month",
             },
@@ -46,5 +47,76 @@ export const pay = action({
     });
 
     return session.url!;
+  },
+});
+
+export const portal = action({
+  args: { orgId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) throw new Error("Unauthorized");
+
+    if (!args.orgId) throw new Error("No organization ID");
+
+    const orgSubscription = await ctx.runQuery(internal.subscription.get, {
+      orgId: args.orgId,
+    });
+
+    if (!orgSubscription) throw new Error("No subscription");
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: orgSubscription.stripeCustomerId,
+      return_url: url,
+    });
+
+    return session.url!;
+  },
+});
+
+export const fullfill = internalAction({
+  args: { signature: v.string(), payload: v.string() },
+  handler: async (ctx, { signature, payload }) => {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
+    try {
+      const event = stripe.webhooks.constructEvent(
+        payload,
+        signature,
+        webhookSecret
+      );
+
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (event.type === "checkout.session.completed") {
+        const subscription = await stripe.subscriptions.retrieve(
+          session.subscription as string
+        );
+
+        if (!session?.metadata?.orgId) throw new Error("No Organization ID");
+
+        await ctx.runMutation(internal.subscription.create, {
+          orgId: session.metadata.orgId as string,
+          stripeSubscriptionId: subscription.id as string,
+          stripeCustomerId: subscription.customer as string,
+          stripePriceId: subscription.items.data[0].price.id as string,
+          stripeCurrentPeriodEnd: subscription.current_period_end * 1000,
+        });
+      }
+
+      if (event.type === "invoice.payment_succeeded") {
+        const subscription = await stripe.subscriptions.retrieve(
+          session.subscription as string
+        );
+
+        await ctx.runMutation(internal.subscription.update, {
+          stripeSubscriptionId: subscription.id as string,
+          stripeCurrentPeriodEnd: subscription.current_period_end * 1000,
+        });
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error(error);
+      return { success: false };
+    }
   },
 });

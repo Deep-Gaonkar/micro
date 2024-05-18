@@ -2,19 +2,48 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Poppins } from "next/font/google";
-import { LayoutDashboard, Star } from "lucide-react";
-import { OrganizationSwitcher } from "@clerk/nextjs";
+import { Banknote, LayoutDashboard, Star } from "lucide-react";
+import { OrganizationSwitcher, useOrganization } from "@clerk/nextjs";
+import { useAction, useQuery } from "convex/react";
 
+import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const font = Poppins({ subsets: ["latin"], weight: ["600"] });
 
 export const OrgSidebar = () => {
   const searchParams = useSearchParams();
   const favorites = searchParams.get("favorites");
+
+  const { organization } = useOrganization();
+  const isSubscribed = useQuery(api.subscription.getIsSubscribed, {
+    orgId: organization?.id,
+  });
+
+  const portal = useAction(api.stripe.portal);
+  const pay = useAction(api.stripe.pay);
+  const [pending, setPending] = useState(false);
+
+  const onClick = async () => {
+    if (!organization) return;
+    setPending(true);
+
+    try {
+      const action = isSubscribed ? portal : pay;
+      const redirectUrl = await action({ orgId: organization.id });
+
+      window.location.href = redirectUrl;
+    } catch (error) {
+      console.log("Something went wrong");
+    } finally {
+      setPending(false);
+    }
+  };
 
   return (
     <div className="hidden lg:flex flex-col space-y-6 w-[206px] pl-5 pt-5">
@@ -24,6 +53,7 @@ export const OrgSidebar = () => {
           <span className={cn("font-semibold text-2xl", font.className)}>
             Micro
           </span>
+          {isSubscribed && <Badge variant="secondary">PRO</Badge>}
         </div>
       </Link>
       <OrganizationSwitcher
@@ -74,6 +104,16 @@ export const OrgSidebar = () => {
             <Star className="h-4 w-4 mr-2" />
             Favorite Boards
           </Link>
+        </Button>
+        <Button
+          onClick={onClick}
+          disabled={pending}
+          variant="ghost"
+          size="lg"
+          className="font-normal justify-start px-2 w-full"
+        >
+          <Banknote className="h-4 w-4 mr-2" />
+          {isSubscribed ? "Payment Settings" : "Upgrade"}
         </Button>
       </div>
     </div>

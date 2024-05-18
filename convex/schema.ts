@@ -27,7 +27,7 @@ export default defineSchema({
     orgId: v.string(),
     stripeCustomerId: v.string(),
     stripeSubscriptionId: v.string(),
-    stipePriceId: v.string(),
+    stripePriceId: v.string(),
     stripeCurrentPeriodEnd: v.number(),
   })
     .index("by_org", ["orgId"])
